@@ -2,7 +2,7 @@
 
 ## Converting the C++ routines from the I2C-API to micropython for Pi Pico
 
-The routines in the I2Cdev.cpp all call low-level c++ primitives from its I2C API. Micropython simplifies the access, as it already has a number of high level routines that deal with the nitty gritty. The C++ code has a number 'write-bit'  type routines for which the I2C driver requires a few more methods, as the smallest unit of transfer on the i2c bus is a byte. Below are some translations of C++ routines to micropython that can serve as a template.
+The routines in the I2Cdev.cpp all call low-level C++ primitives from its I2C API. Micropython simplifies the access, as it already has a number of high level routines that deal with the nitty gritty. The i2cdev C++ codelibrary does have a number of 'write-bit' type routines which codes a few more methods that are not available in Miropython, as the smallest unit of transfer on the i2c bus is a byte. Below are some translations of C++ routines to micropython that can serve as a template.
 
 ### Reading data from the MPU6050
 
