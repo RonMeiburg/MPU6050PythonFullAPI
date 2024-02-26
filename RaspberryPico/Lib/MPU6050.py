@@ -3,12 +3,12 @@ import MPUregisters as MPUreg
 from bus import bus
 import utime
 #
-# Version 1.3 22-feb-2024
+# Version 1.4 26-feb-2024
 #
 
 
 MPUADDR = MPUreg.MPUADDRESS
-
+BUFFER_LENGTH = 32     #This is likely a limitation left over from the Arduino library
 
 def to_byte(integer) -> bytes:
     return int.to_bytes(integer, 1, "big")
@@ -94,7 +94,16 @@ class MPU6050():
         self.bus.write_bit(MPUADDR, MPUreg.USER_CTRL, MPUreg.USERCTRL_DMP_RESET_BIT, True)
         
     def reset_fifo(self):
-        self.bus.write_bit(MPUADDR, MPUreg.USER_CTRL, MPUreg.USERCTRL_FIFO_RESET_BIT, True)        
+        self.bus.write_bit(MPUADDR, MPUreg.USER_CTRL, MPUreg.USERCTRL_FIFO_RESET_BIT, True)
+        
+    def set_int_data_ready_enabled(self):
+        self.bus.write_bit(MPUADDR, MPUreg.INT_ENABLE, MPUreg.INTERRUPT_DATA_RDY_BIT, True)
+        
+    def get_int_data_ready_enabled(self):
+        return self.bus.read_bit(MPUADDR, MPUreg.INT_ENABLE, MPUreg.INTERRUPT_DATA_RDY_BIT)
+    
+    def get_int_data_ready_status(self):
+        return self.bus.read_bit(MPUADDR, MPUreg.INT_STATUS, MPUreg.INTERRUPT_DATA_RDY_BIT)
 #
 # Data processing and motion detection
 #        
@@ -346,40 +355,36 @@ class MPU6050():
     def reset_fifo(self):
        self.bus.write_bit(MPUADDR, MPUreg.USER_CTRL, MPUreg.USERCTRL_FIFO_RESET_BIT, True)
 
-    def get_current_fifo_packet(self, length):
-        # Overflow-proof function to retrieve a FIFO packet
-        fifo_c = 0
-        break_timer = utime.ticks_us()
-
-        while True:
-            fifo_c = self.get_fifo_count()
-            print(f"number of bytes = {fifo_c}")
-
-            if fifo_c > length:
-                if fifo_c > 200:                       # Not clear Fifosize is 1024 bytes max
-                    self.reset_fifo()
-                    fifo_c = 0
-                    while not fifo_c and utime.ticks_diff(utime.ticks_us(), break_timer) <= 11000:
-                        fifo_c = self.get_fifo_count()
+    def get_current_fifo_packet(self, length):   # length = packetsize. There is no check!!!
+        ''' Overflow-proof function to retrieve a FIFO packet. Modified from Rowberg's C++
+            routine as this was creating fragmented packets. The current approach is robust against
+            busfrequencies as low as 50kHz and packetretrieval rates of 10Hz
+        '''
+        break_timer = utime.ticks_ms()
+        fifo_c = self.get_fifo_count()
+        while True:    
+            if fifo_c == length:                          # Nice, we have only 1 packet
+                return self.get_fifo_bytes(length) 
+            elif fifo_c > length:                         # There is more than 1 packet in the fifo buffer 
+                remove = (int(fifo_c/length) - 1)*length
+                while remove > 5*length:                  # Limit #bytes received to avoid timouts at low busfrequencies
+                    self.get_fifo_bytes(5*length)         # trash these
+                    remove -= 5* length
+                self.get_fifo_bytes(remove)
+                return self.get_fifo_bytes(length)        # and return the remaining packet
+            elif fifo_c == 0:
+                if utime.ticks_diff(utime.ticks_ms(), break_timer) <= 50: # Need some more intelligence for timeout
+                    utime.sleep_us(500)
                 else:
-                    trash = bytearray(BUFFER_LENGTH)
-                    while fifo_c > length:                         # Need to work this out, We are not getting here
-                        fifo_c -= length                           # so this may be buggy
-                        remove_bytes = min(fifo_c, BUFFER_LENGTH)
-                        self.get_fifo_bytes(trash, remove_bytes)
-                        fifo_c -= remove_bytes
+                    raise Exception('Timeout waiting for next packet')
+            else:
+                pass    # This can occur when length does not match the actual package size 
+                        # It occurs also when fifo has less than 'length' bytes, which occasionally happens,
+                        # at least when using the dmp. So it is not per se an error to end up here.
+                        # Should have a handler to separate both cases and raise an excpetion when necessary
 
-            if not fifo_c:
-                print("called too early")
-                return 0  # Called too early, no data or timed out after FIFO reset
 
-            if utime.ticks_diff(utime.ticks_us(), break_timer) > 11000:
-                print("Time expired")
-                return 0
-
-            if fifo_c == length:
- #               self.get_fifo_bytes(length)  # Get 1 packet
-                return self.get_fifo_bytes(length)  # Get 1 packet ?? 1 packet, why then length??
+            fifo_c = self.get_fifo_count() 
 
 class MPU6050_DMP(MPU6050):
     
@@ -387,7 +392,7 @@ class MPU6050_DMP(MPU6050):
 
     def __init__(self, bus):
         super().__init__(bus)
-        # we are reading DMP image from file. Make sure this ends up in /lib in the pico memory
+        # we are reading DMP image from file. Make sure this is in /lib in the pico memory
         int_values =  []
         with open('/lib/DMP_image.txt') as DMP_image_source:
             a = DMP_image_source.readlines()
