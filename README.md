@@ -14,4 +14,6 @@ This repo breaks up into two folders, one containing the PMU6050 using Python an
 
 The code exposes the functionality of the MPU6050, like (no-)motion detection, gravity free acceleraion, quaternion based orientation etc. At present the API calls to add additional sensors, in particular a magnetometer, have not (yet) been translated, as these are likely not going to be used and would only add size to the python source file. A recipe for translating these calls from C++ to (micro-)Python has been provided separately. 
 
+Status
 
+22 feb 2024 First example reading quaternions in microPython uploaded. The code for retrieving dmp packets is now stable even for low busfrequencies, down to 50kHz, and low packet retrieval frequencies
