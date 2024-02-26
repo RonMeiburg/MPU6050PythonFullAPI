@@ -26,13 +26,20 @@ led.off()
 #
 # Set up network connection
 #
-print("set up network")
-wlan = network.WLAN(network.STA_IF)
 SERVERIP    = "192.168.10.130"  # When using another device for display
 SERVERPORT  =  5000             # Choose your network port
 #SSID      Define this in secrets file
 #PASSWD    Define this in secrets file
 
+print("setting up network")
+# STA_IF implies connect to upstream Wifi access point
+wlan = network.WLAN(network.STA_IF)
+# Fire up the wlan HW
+print("power up adapter")
+wlan.active(True)
+
+# Connect to the network
+wlan.connect(SSID, PASSWD)
 status = wlan.ifconfig()
 print( 'Connected to ' + SSID + '. ' + 'Device IP: ' + status[0] )
 print('creating socket')
@@ -49,7 +56,7 @@ sdaPIN  = Pin(16)   # data pin for i2c bus
 sclPIN  = Pin(17)   # clock pin for i2c bus
 
 # create bus object
-i2cbus = bus(busnum,sda=sdaPIN, scl=sclPIN, freq=50000)  # use 50kHz so we can track with analyzer
+i2cbus = bus(busnum,sda=sdaPIN, scl=sclPIN, freq=400000) 
 print(i2cbus)
 # create mpu object with full dmp functionality
 mpu = MPU6050_DMP(i2cbus)
