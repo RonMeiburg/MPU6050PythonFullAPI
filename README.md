@@ -16,4 +16,4 @@ The code exposes the functionality of the MPU6050, like (no-)motion detection, g
 
 Status
 
-22 feb 2024 First example reading quaternions in microPython uploaded. The code for retrieving dmp packets is now stable even for low busfrequencies, down to 50kHz, and low packet retrieval frequencies
+22 feb 2024 First example reading quaternions in microPython uploaded. The code for retrieving dmp packets is now stable even for low busfrequencies, down to 50kHz, and low packet retrieval frequencies, down to 10Hz.
